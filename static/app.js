@@ -135,13 +135,17 @@ const App = () => {
     try {
       const response = await fetch('/api/chaos_monkey', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
       });
       
-      if (!response.ok) throw new Error('Failed to trigger Chaos Monkey');
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || errData.message || 'Failed to trigger Chaos Monkey');
+      }
       
       const data = await response.json();
-      showNotification(data.message);
+      showNotification(data.message || 'Chaos Monkey triggered');
     } catch (error) {
       showNotification(`Error: ${error.message}`);
     }

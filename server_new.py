@@ -216,7 +216,8 @@ def reschedule_pods_from_failed_node(nid):
     for pod in failed["pods"]:
         ok, new_nid = schedule_pod(pod, "first_fit")
         if ok:
-            update_pod_node(pod["pod_id"], new_nid)
+            pod["node_id"] = new_nid
+            save_pod(pod)
             log_event_func(f"Rescheduled pod {pod['pod_id']} → {new_nid}")
         else:
             log_event_func(f"Failed to reschedule pod {pod['pod_id']}")
@@ -567,9 +568,10 @@ def launch_pod_endpoint():
 
 @app.route('/api/chaos_monkey', methods=['POST'])
 def chaos_api():
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     node_id = data.get("node_id")
-    return jsonify(chaos_monkey(node_id)), 200
+    result = chaos_monkey(node_id)
+    return jsonify(result), 200
 
 @app.route('/api/download_report', methods=['GET'])
 def download_report():
