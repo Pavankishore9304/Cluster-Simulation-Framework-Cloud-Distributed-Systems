@@ -1,5 +1,6 @@
 import os
 import time
+import threading
 import mysql.connector
 from mysql.connector import Error
 from dotenv import load_dotenv
@@ -15,46 +16,78 @@ DB_CONFIG = {
     'database': os.environ.get('MYSQL_DATABASE', 'cluster_sim')
 }
 
-# Global connection object
+# Global connection object & Thread Lock
+db_lock = threading.RLock()
 db_connection = None
 db_cursor = None
 
 def connect_to_mysql():
-    """Connect to MySQL database."""
+    """Connect to MySQL database (thread-safe)."""
     global db_connection, db_cursor
-    try:
-        db_connection = mysql.connector.connect(**DB_CONFIG)
-        db_cursor = db_connection.cursor(dictionary=True)
-        print("✅ Successfully connected to MySQL database")
-        return True
-    except Error as e:
-        print(f"❌ Failed to connect to MySQL database: {e}")
-        return False
+    with db_lock:
+        try:
+            if db_connection and db_connection.is_connected():
+                return True
+            db_connection = mysql.connector.connect(**DB_CONFIG)
+            db_cursor = db_connection.cursor(dictionary=True)
+            print("[SUCCESS] Successfully connected to MySQL database")
+            return True
+        except Error as e:
+            # If database does not exist, attempt to create it automatically
+            if getattr(e, 'errno', None) == 1049:
+                try:
+                    temp_config = DB_CONFIG.copy()
+                    target_db = temp_config.pop('database', 'cluster_sim')
+                    temp_conn = mysql.connector.connect(**temp_config)
+                    temp_cur = temp_conn.cursor()
+                    temp_cur.execute(f"CREATE DATABASE IF NOT EXISTS `{target_db}`")
+                    temp_cur.close()
+                    temp_conn.close()
+                    # Reconnect to the created database
+                    db_connection = mysql.connector.connect(**DB_CONFIG)
+                    db_cursor = db_connection.cursor(dictionary=True)
+                    print(f"[SUCCESS] Created database '{target_db}' and connected to MySQL")
+                    return True
+                except Exception as err:
+                    print(f"[ERROR] Failed to auto-create database '{target_db}': {err}")
+                    return False
+            print(f"[ERROR] Failed to connect to MySQL database: {e}")
+            return False
 
 def execute_query(query, params=None, fetch=True):
-    """Execute a query and optionally fetch results."""
+    """Execute a query and optionally fetch results (thread-safe)."""
     global db_connection, db_cursor
-    
-    # Reconnect if connection is closed
-    if db_connection is None or not db_connection.is_connected():
-        if not connect_to_mysql():
+    with db_lock:
+        # Reconnect if connection is closed
+        if db_connection is None or not db_connection.is_connected():
+            if not connect_to_mysql():
+                return None if fetch else False
+        
+        try:
+            db_cursor.execute(query, params or ())
+            if fetch:
+                result = db_cursor.fetchall()
+                return result
+            else:
+                db_connection.commit()
+                return True
+        except Error as e:
+            print(f"Error executing query: {e}")
+            print(f"Query: {query}")
+            print(f"Params: {params}")
+            if not fetch:
+                try:
+                    db_connection.rollback()
+                except Exception:
+                    pass
+            # Auto-reconnect on dropped connection
+            if getattr(e, 'errno', None) in (2006, 2013):
+                try:
+                    db_connection = None
+                    connect_to_mysql()
+                except Exception:
+                    pass
             return None if fetch else False
-    
-    try:
-        db_cursor.execute(query, params or ())
-        if fetch:
-            result = db_cursor.fetchall()
-            return result
-        else:
-            db_connection.commit()
-            return True
-    except Error as e:
-        print(f"Error executing query: {e}")
-        print(f"Query: {query}")
-        print(f"Params: {params}")
-        if not fetch:
-            db_connection.rollback()
-        return None if fetch else False
 
 def init_mysql_tables():
     """Create MySQL tables if they don't exist."""

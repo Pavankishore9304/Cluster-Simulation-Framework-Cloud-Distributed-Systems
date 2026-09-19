@@ -1,31 +1,57 @@
 #!/bin/bash
+set -e
 
-echo "Installing required packages..."
-pip install -r requirements.txt
+echo "==================================================="
+echo "    Cluster Simulation Framework - Quick Start"
+echo "==================================================="
+echo ""
 
-echo "Starting the cluster simulation server with Supabase integration..."
+# 1. Setup Virtual Environment
+if [ ! -d "venv" ]; then
+    echo "[*] Creating virtual environment (venv)..."
+    python3 -m venv venv || python -m venv venv
+fi
+
+echo "[*] Activating virtual environment..."
+source venv/bin/activate
+
+# 2. Setup .env file
+if [ ! -f ".env" ] && [ -f ".env.example" ]; then
+    echo "[*] Creating .env from .env.example..."
+    cp .env.example .env
+fi
+
+# 3. Install/Verify Dependencies
+echo "[*] Installing / verifying dependencies..."
+pip install -r requirements.txt --quiet
+
+# 4. Test MySQL Connection
+echo "[*] Checking MySQL connection..."
+python test_mysql.py
+
+# 5. Launch Server in Background
+echo "[*] Starting the cluster simulation server..."
 python server_new.py &
 SERVER_PID=$!
 
-echo "Wait for the server to initialize..."
-sleep 5
+echo "[*] Waiting for server initialization..."
+sleep 4
 
-echo "Adding a test node with 8 CPU cores and 16GB memory..."
-python client.py add_node --cpu 8 --memory 16
+# 6. Seed Initial Test Node & Pod
+echo "[*] Adding initial test node (8 CPU, 16GB RAM)..."
+python client.py add_node --cpu 8 --memory 16 --node_type balanced
 
-echo "Launching a test pod with 2 CPU cores..."
-python client.py launch_pod --cpu_required 2 --memory_required 4
+echo "[*] Launching initial test pod (2 CPU, 4GB RAM)..."
+python client.py launch_pod --cpu_required 2 --memory_required 4 --scheduling_algorithm first_fit
 
-echo "Listing all nodes in the cluster..."
-python client.py list_nodes
-
-echo "Dashboard is available at http://localhost:5000"
+# 7. Open Dashboard
 echo ""
-echo "You can now explore the dashboard in your web browser!"
-echo "Opening the dashboard..."
-python client.py dashboard
+echo "==================================================="
+echo "[SUCCESS] Cluster Simulation Framework is running!"
+echo "Dashboard: http://localhost:5000"
+echo "==================================================="
+python client.py dashboard || true
 echo ""
 echo "Press Ctrl+C to stop the server when finished."
 
-# Wait for Ctrl+C
-wait $SERVER_PID 
+wait $SERVER_PID

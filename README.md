@@ -38,57 +38,81 @@ A Python-based distributed computing cluster simulator with real-time monitoring
 
 ## Requirements
 
-- Python 3.8+
-- Node.js (for dashboard development)
-- Docker (optional, for containerized nodes)
-- MySQL database server
+- **Python 3.8+**
+- **MySQL Database Server** (running locally or remotely)
+- *Docker* (completely optional — only needed if you want containerized nodes)
+- *Node.js* (not required — dashboard uses lightweight client-side CDN assets)
 
-## Setup MySQL Database
+## Quick Start (Effortless 1-Step Setup)
 
-1. Install MySQL server if not already installed
-2. Create a new database for the application:
-   ```sql
-   CREATE DATABASE cluster_sim;
-   ```
-3. Configure MySQL connection in the `.env` file (see Configuration section)
+The quickest way to start the project after cloning is using the automated launcher scripts. They will automatically create a Python virtual environment, install all dependencies, verify the database, start the server, add sample nodes, and open your dashboard:
 
-## Quick Start
+### On Windows:
+```cmd
+quick_start.bat
+```
 
-1. **Setup Environment**
+### On Linux / macOS:
+```bash
+chmod +x quick_start.sh
+./quick_start.sh
+```
+
+---
+
+## Manual Setup (Step-by-Step)
+
+If you prefer to set up manually:
+
+1. **Clone the Repository:**
    ```bash
-   # Clone repository
-   git clone [your-repo-url]
+   git clone https://github.com/your-username/cluster-simulation-framework.git
    cd cluster-simulation-framework
+   ```
 
-   # Install dependencies
+2. **Create & Activate a Virtual Environment:**
+   - **Windows (PowerShell):**
+     ```powershell
+     python -m venv venv
+     .\venv\Scripts\Activate.ps1
+     ```
+   - **Linux / macOS:**
+     ```bash
+     python3 -m venv venv
+     source venv/bin/activate
+     ```
+
+3. **Install Dependencies:**
+   ```bash
    pip install -r requirements.txt
    ```
 
-2. **Configure MySQL Connection**
-   - Create a `.env` file based on `.env.example`:
-   ```
-   MYSQL_HOST=localhost
-   MYSQL_USER=your_username
-   MYSQL_PASSWORD=your_password
-   MYSQL_DATABASE=cluster_sim
-   ```
+4. **Configure Database:**
+   - Copy `.env.example` to `.env`:
+     ```bash
+     cp .env.example .env
+     ```
+   - Edit `.env` to match your local MySQL credentials:
+     ```env
+     MYSQL_HOST=localhost
+     MYSQL_USER=root
+     MYSQL_PASSWORD=your_password
+     MYSQL_DATABASE=cluster_sim
+     ```
+   *(Note: The `cluster_sim` database and its tables will automatically be created on first connection if they do not already exist).*
 
-3. **Test MySQL Connection**
+5. **Verify Database Connection:**
    ```bash
    python test_mysql.py
    ```
 
-4. **Start the Server**
+6. **Start the Simulator Server:**
    ```bash
-   # Windows
-   quick_start.bat
-
-   # Linux/Mac
-   ./quick_start.sh
+   python server_new.py
    ```
 
-4. **Access Dashboard**
-   - Open http://localhost:5000 in your browser
+7. **Access the Web Dashboard:**
+   Open your browser and navigate to: **[http://localhost:5000](http://localhost:5000)**
 
 ## CLI Usage
 

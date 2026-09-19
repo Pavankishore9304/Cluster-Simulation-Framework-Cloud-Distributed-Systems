@@ -25,7 +25,7 @@ try:
     docker_client = docker.from_env()
 except DockerException:
     docker_client = None
-    print("⚠️ Docker not available—containers will NOT be launched.")
+    print("⚠️ Docker not available—con  tainers will NOT be launched.")
 print("🔍 Docker client:", "OK" if docker_client else "NOT AVAILABLE")
 
 def ensure_network(group):
@@ -95,6 +95,10 @@ def load_cluster_state():
         nodes.clear()
         for node_data in supabase_nodes:
             node_id = node_data["node_id"]
+            simulate_hb = bool(node_data.get("simulate_heartbeat", True))
+            status = node_data["status"]
+            # If simulated node is active, refresh heartbeat to now so it doesn't instantly timeout
+            last_hb = time.time() if (simulate_hb and status == "active") else node_data["last_heartbeat"]
             nodes[node_id] = {
                 "node_id": node_id,
                 "cpu_total": node_data["cpu_total"],
@@ -103,9 +107,9 @@ def load_cluster_state():
                 "memory_available": node_data["memory_available"],
                 "node_type": node_data["node_type"],
                 "network_group": node_data["network_group"],
-                "last_heartbeat": node_data["last_heartbeat"],
-                "status": node_data["status"],
-                "simulate_heartbeat": bool(node_data["simulate_heartbeat"]),
+                "last_heartbeat": last_hb,
+                "status": status,
+                "simulate_heartbeat": simulate_hb,
                 "pods": [],
                 "container_id": node_data.get("container_id")
             }
@@ -627,7 +631,7 @@ if __name__ == '__main__':
         background_tasks()
         
         # Start server
-        socketio.run(app, host="0.0.0.0", port=5000, debug=True)
+        socketio.run(app, host="0.0.0.0", port=5000, debug=False, use_reloader=False, allow_unsafe_werkzeug=True)
         
         # Close MySQL connection on exit
         close_connection()
